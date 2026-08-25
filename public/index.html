@@ -2,82 +2,350 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Product Knowledge Assistant</title>
   <style>
-    body {
-      font-family: system-ui, sans-serif;
-      max-width: 640px;
-      margin: 40px auto;
-      padding: 0 16px;
-      background: #f7f7f8;
-      color: #1a1a1a;
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&display=swap');
+
+    :root {
+      --bg: #faf9f5;
+      --surface: #ffffff;
+      --border: #e5e2d9;
+      --text: #2d2b26;
+      --text-muted: #6b6659;
+      --accent: #c96442;
+      --accent-soft: #f3e6de;
+      --user-bubble: #2d2b26;
+      --user-text: #faf9f5;
+      --error-border: #c96442;
+      --error-bg: #fbf0ea;
+      --radius: 16px;
     }
-    h1 { font-size: 1.4rem; }
-    #chat {
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      min-height: 100vh;
       display: flex;
       flex-direction: column;
-      gap: 12px;
-      margin-bottom: 16px;
+      align-items: center;
     }
-    .msg {
-      padding: 10px 14px;
+
+    .shell {
+      width: 100%;
+      max-width: 720px;
+      padding: 32px 20px 24px;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+
+    .mark {
+      width: 34px;
+      height: 34px;
       border-radius: 10px;
-      max-width: 85%;
-      line-height: 1.4;
+      background: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-family: 'Source Serif 4', serif;
+      font-weight: 600;
+      font-size: 17px;
+      flex-shrink: 0;
+    }
+
+    h1 {
+      font-family: 'Source Serif 4', serif;
+      font-weight: 600;
+      font-size: 1.3rem;
+      margin: 0;
+      letter-spacing: -0.01em;
+    }
+
+    .subtitle {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    #chat {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      overflow-y: auto;
+      padding-bottom: 12px;
+    }
+
+    .empty-state {
+      margin: auto;
+      text-align: center;
+      color: var(--text-muted);
+      padding: 40px 20px;
+    }
+
+    .empty-state h2 {
+      font-family: 'Source Serif 4', serif;
+      font-weight: 500;
+      font-size: 1.15rem;
+      color: var(--text);
+      margin: 0 0 8px;
+    }
+
+    .empty-state p {
+      font-size: 0.88rem;
+      line-height: 1.5;
+      margin: 0 0 18px;
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+    }
+
+    .chip {
+      font-size: 0.8rem;
+      padding: 7px 13px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+    }
+
+    .chip:hover {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+
+    .row {
+      display: flex;
+      animation: rise 0.25s ease;
+    }
+
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .row.user { justify-content: flex-end; }
+    .row.bot { justify-content: flex-start; }
+
+    .bubble {
+      max-width: 82%;
+      padding: 12px 16px;
+      border-radius: var(--radius);
+      line-height: 1.55;
+      font-size: 0.94rem;
       white-space: pre-wrap;
     }
-    .user { align-self: flex-end; background: #2563eb; color: white; }
-    .bot { align-self: flex-start; background: white; border: 1px solid #ddd; }
-    .bot.not-found { border-color: #e11d48; color: #b91c1c; }
-    form { display: flex; gap: 8px; }
+
+    .row.user .bubble {
+      background: var(--user-bubble);
+      color: var(--user-text);
+      border-bottom-right-radius: 4px;
+    }
+
+    .row.bot .bubble {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-bottom-left-radius: 4px;
+    }
+
+    .row.bot .bubble.not-found {
+      background: var(--error-bg);
+      border-color: var(--error-border);
+      color: #8a3a22;
+    }
+
+    .bubble .status {
+      display: inline-block;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 6px;
+      color: var(--accent);
+    }
+
+    .bubble.not-found .status { color: #b1522f; }
+
+    .typing {
+      display: flex;
+      gap: 4px;
+      padding: 6px 2px;
+    }
+
+    .typing span {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      animation: bounce 1.2s infinite ease-in-out;
+    }
+
+    .typing span:nth-child(2) { animation-delay: 0.15s; }
+    .typing span:nth-child(3) { animation-delay: 0.3s; }
+
+    @keyframes bounce {
+      0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+      40% { transform: translateY(-4px); opacity: 1; }
+    }
+
+    form {
+      display: flex;
+      gap: 8px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+      margin-top: 14px;
+    }
+
     input {
       flex: 1;
-      padding: 10px 12px;
-      border-radius: 8px;
-      border: 1px solid #ccc;
-      font-size: 1rem;
+      padding: 12px 16px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      font-size: 0.95rem;
+      font-family: inherit;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.15s;
     }
+
+    input:focus { border-color: var(--accent); }
+
     button {
-      padding: 10px 18px;
-      border-radius: 8px;
+      padding: 0 22px;
+      border-radius: 999px;
       border: none;
-      background: #2563eb;
+      background: var(--accent);
       color: white;
-      font-size: 1rem;
+      font-size: 0.9rem;
+      font-weight: 500;
+      font-family: inherit;
       cursor: pointer;
+      transition: opacity 0.15s;
     }
+
+    button:hover:not(:disabled) { opacity: 0.9; }
     button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1e1c19;
+        --surface: #2a2723;
+        --border: #3d3a34;
+        --text: #ece8e0;
+        --text-muted: #9c9689;
+        --accent: #e07a55;
+        --accent-soft: #3a2c24;
+        --user-bubble: #ece8e0;
+        --user-text: #1e1c19;
+        --error-bg: #33241e;
+        --error-border: #e07a55;
+      }
+      .row.bot .bubble.not-found { color: #f0a184; }
+    }
   </style>
 </head>
 <body>
-  <h1>Product Knowledge Assistant</h1>
-  <div id="chat"></div>
-  <form id="ask-form">
-    <input id="question" type="text" placeholder="Ask about a product..." autocomplete="off" />
-    <button type="submit">Ask</button>
-  </form>
+  <div class="shell">
+    <header>
+      <div class="mark">P</div>
+      <div>
+        <h1>Product Knowledge Assistant</h1>
+        <div class="subtitle">Ask about anything in the catalogue</div>
+      </div>
+    </header>
+
+    <div id="chat">
+      <div class="empty-state" id="empty-state">
+        <h2>What are you looking for?</h2>
+        <p>I can answer questions about price, stock, warranty, and links — grounded strictly in the actual catalogue.</p>
+        <div class="chips">
+          <button type="button" class="chip" data-q="How much is the Anker PowerCore 10000mAh?">Anker PowerCore price</button>
+          <button type="button" class="chip" data-q="Do you have any Baseus products?">Baseus products?</button>
+          <button type="button" class="chip" data-q="Is the Soundcore Life P3 in stock?">Soundcore Life P3 stock</button>
+          <button type="button" class="chip" data-q="Do you sell washing machines?">Washing machines?</button>
+        </div>
+      </div>
+    </div>
+
+    <form id="ask-form">
+      <input id="question" type="text" placeholder="Ask about a product..." autocomplete="off" />
+      <button type="submit">Ask</button>
+    </form>
+  </div>
 
   <script>
     const chat = document.getElementById('chat');
+    const emptyState = document.getElementById('empty-state');
     const form = document.getElementById('ask-form');
     const input = document.getElementById('question');
+    const submitBtn = form.querySelector('button');
 
-    function addMessage(text, sender, notFound) {
-      const div = document.createElement('div');
-      div.className = 'msg ' + sender + (notFound ? ' not-found' : '');
-      div.textContent = text;
-      chat.appendChild(div);
+    function clearEmptyState() {
+      if (emptyState.parentNode) emptyState.remove();
+    }
+
+    function addUserMessage(text) {
+      clearEmptyState();
+      const row = document.createElement('div');
+      row.className = 'row user';
+      row.innerHTML = '<div class="bubble"></div>';
+      row.querySelector('.bubble').textContent = text;
+      chat.appendChild(row);
       chat.scrollTop = chat.scrollHeight;
     }
 
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const question = input.value.trim();
-      if (!question) return;
+    function addTypingIndicator() {
+      const row = document.createElement('div');
+      row.className = 'row bot';
+      row.id = 'typing-row';
+      row.innerHTML = '<div class="bubble"><div class="typing"><span></span><span></span><span></span></div></div>';
+      chat.appendChild(row);
+      chat.scrollTop = chat.scrollHeight;
+      return row;
+    }
 
-      addMessage(question, 'user');
+    function addBotMessage(text, found) {
+      const row = document.createElement('div');
+      row.className = 'row bot';
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble' + (found ? '' : ' not-found');
+      const status = document.createElement('div');
+      status.className = 'status';
+      status.textContent = found ? 'Found in catalogue' : 'Not available';
+      bubble.appendChild(status);
+      const body = document.createElement('div');
+      body.textContent = text;
+      bubble.appendChild(body);
+      row.appendChild(bubble);
+      chat.appendChild(row);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    async function ask(question) {
+      addUserMessage(question);
       input.value = '';
-      form.querySelector('button').disabled = true;
+      submitBtn.disabled = true;
+      const typingRow = addTypingIndicator();
 
       try {
         const res = await fetch('/ask', {
@@ -86,12 +354,26 @@
           body: JSON.stringify({ question }),
         });
         const data = await res.json();
-        addMessage(data.answer, 'bot', !data.found);
+        typingRow.remove();
+        addBotMessage(data.answer, !!data.found);
       } catch (err) {
-        addMessage('Something went wrong talking to the server.', 'bot', true);
+        typingRow.remove();
+        addBotMessage('Something went wrong reaching the server. Please try again.', false);
       } finally {
-        form.querySelector('button').disabled = false;
+        submitBtn.disabled = false;
+        input.focus();
       }
+    }
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const question = input.value.trim();
+      if (!question) return;
+      ask(question);
+    });
+
+    document.querySelectorAll('.chip').forEach((chip) => {
+      chip.addEventListener('click', () => ask(chip.dataset.q));
     });
   </script>
 </body>
