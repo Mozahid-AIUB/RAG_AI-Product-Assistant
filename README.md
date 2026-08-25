@@ -1,11 +1,11 @@
 # Product Knowledge Assistant
 
-A backend that answers plain-English questions about a product catalogue — and, just as importantly, knows when to say "we don't have that" instead of guessing. Built with NestJS and Google Gemini, using retrieval augmented generation (RAG) so every answer is grounded in an actual spreadsheet row, never invented.
-
 **Live demo:** https://rag-ai-product-assistant.onrender.com/
 **Repo:** https://github.com/Mozahid-AIUB/RAG_AI-Product-Assistant
 
-> The live instance is on Render's free tier, which spins down after periods of inactivity — the first request after a while may take up to ~50 seconds to wake up. Subsequent requests are fast.
+> Free hosting spins down when idle. First request after a while can take ~50 seconds to wake up. After that it's fast.
+
+A backend that answers questions about a product catalogue in plain English. If a product isn't in the catalogue, it says so honestly instead of making something up. Built with NestJS and Google Gemini.
 
 ---
 
@@ -18,7 +18,7 @@ npm install
 npm run start
 ```
 
-Open `http://localhost:3000` for a small chat UI, or call the API directly:
+Open `http://localhost:3000` for a simple chat UI, or call the API directly:
 
 ```bash
 curl -X POST http://localhost:3000/ask \
@@ -33,33 +33,20 @@ curl -X POST http://localhost:3000/ask \
 }
 ```
 
-A pre-built knowledge base is committed, so this works immediately — no ingestion step required before your first query.
+No setup step needed for your first query — the knowledge base is already built and committed.
 
 ---
 
 ## How it works
 
-```
-products_data.xlsx
-      │  npm run ingest  (one-time, offline)
-      ▼
-normalize each row → build a short text summary per product → embed with Gemini
-      │
-      ▼
-data/knowledge-base.json   (products + vectors, committed to the repo)
+1. **Ingestion (`npm run ingest`, run once):** reads the Excel file, cleans up each row, and turns it into a short text description. Each description is sent to Gemini to get a vector (an "embedding"). All products + vectors get saved to `data/knowledge-base.json`.
+2. **Answering a question (`POST /ask`):**
+   - Turn the question into a vector, the same way.
+   - Compare it to every stored product vector and find the closest matches.
+   - If the closest match isn't close enough, reply "not available" and stop — the AI chat model is never even called.
+   - If there's a good match, send just those few matched products (never the whole catalogue) to Gemini, along with the question, and return its answer.
 
-POST /ask "How much is the Anker PowerCore?"
-      │
-      ▼
-embed the question → cosine similarity vs every stored vector → top 3 matches
-      │
-      ├─ best match below threshold?  → "not available", chat model never called
-      │
-      └─ confident match → send only those matched rows + the question to Gemini
-                            → model answers strictly from that data, or admits it can't
-```
-
-The one rule everything else serves: **the model is only ever shown the handful of products retrieval actually matched — never the full catalogue — and it's instructed to refuse rather than invent.**
+This is the core idea: the AI only ever sees a handful of real products, and it's told never to make up details that aren't there.
 
 ---
 
@@ -67,26 +54,26 @@ The one rule everything else serves: **the model is only ever shown the handful 
 
 ```bash
 npm install
-cp .env.example .env   # then fill in GEMINI_API_KEY
+cp .env.example .env   # then add your GEMINI_API_KEY
 ```
 
-Get a free Gemini API key at https://aistudio.google.com/app/apikey. The submitted `.env` already has a working key.
+Get a free key at https://aistudio.google.com/app/apikey. The submitted `.env` already has a working key.
 
-## Running ingestion
+## Re-running ingestion
 
-Only needed if you change `products_data.xlsx`. Place the file at `RAG/products_data.xlsx` (one level above this folder), then:
+Only needed if `products_data.xlsx` changes. Place the file at `RAG/products_data.xlsx` (one folder above this one), then:
 
 ```bash
 npm run ingest
 ```
 
-This reads the spreadsheet, cleans and normalizes every row, embeds each product with Gemini, and writes `data/knowledge-base.json`. It's a standalone script — it never runs as part of serving a request.
+This is a standalone script — it never runs automatically when the server starts.
 
 ## Running the server
 
 ```bash
-npm run start          # development
-npm run build && npm run start:prod   # production
+npm run start                          # development
+npm run build && npm run start:prod    # production
 ```
 
 ### API
@@ -98,88 +85,87 @@ Content-Type: application/json
 { "question": "What is the warranty on the Amazfit Bip 5?" }
 ```
 
+Found:
 ```json
 { "found": true, "answer": "The warranty on the Amazfit Bip 5 Smartwatch is 12 Months." }
 ```
 
+Not found:
 ```json
 { "found": false, "answer": "Sorry, this product is not available in our catalogue. Try asking about a specific product, brand, or category — for example \"Anker power bank\" or \"JBL speaker\"." }
 ```
 
-Add `?debug=true` to see the matched products and their similarity scores alongside the answer — useful for understanding *why* a question was or wasn't answered.
+Add `?debug=true` to the URL to also get back the matched products and their similarity scores — helpful for seeing *why* a question got answered or rejected.
 
-See [`requests.http`](./requests.http) for a full set of ready-to-run example requests.
+See [`requests.http`](./requests.http) for ready-to-run example requests.
 
 ### Environment variables
 
-| Variable | Description |
+| Variable | What it's for |
 |---|---|
-| `GEMINI_API_KEY` | Google Gemini API key (free tier) |
+| `GEMINI_API_KEY` | Your Gemini API key (free tier) |
 | `PORT` | Server port, defaults to `3000` |
-| `SIMILARITY_THRESHOLD` | Cosine similarity cutoff below which the server refuses to answer — see below |
+| `SIMILARITY_THRESHOLD` | How close a match needs to be before the system trusts it — see below |
 
 ---
 
-## Provider choice: Google Gemini
+## Why Google Gemini
 
-One provider for both embedding and chat keeps setup to a single API key with no separate signups.
+One provider for both embedding and chat, so setup only needs one API key.
 
-- **Embedding — `gemini-embedding-001`.** (The brief references `text-embedding-004`; that model has since been retired, so I moved to its current replacement.)
-- **Chat — `gemini-flash-lite-latest`.** I first used `gemini-3.6-flash`, but its free tier is capped at 5 requests/minute and started failing almost immediately under normal testing. `gemini-flash-lite-latest` has a much more workable free quota and held up under rapid, repeated requests.
-- **Rate limit handling:** every Gemini call goes through a small retry-with-backoff wrapper that catches HTTP 429 and retries with increasing delay. The ingestion script additionally spaces out its ~30 embedding calls by 300ms each, since it fires them back to back.
+- **Embedding model:** `gemini-embedding-001`.
+- **Chat model:** `gemini-flash-lite-latest`. I tried a newer model first (`gemini-3.6-flash`), but its free tier only allows 5 requests per minute, which broke almost instantly during testing. This one has a much bigger free quota.
+- If Gemini ever replies with a rate-limit error, the app automatically waits a moment and retries a few times before giving up.
 
-## How the similarity threshold was chosen
+## How the similarity threshold was picked
 
-The threshold decides the one thing this whole task is actually graded on: whether the system correctly says "not available" instead of inventing an answer. I didn't pick a number — I measured one, using `?debug=true` against the real catalogue and the brief's own test questions.
+This number decides how confident the system needs to be before it trusts a match. Get it wrong and the system either invents answers for products it doesn't have, or refuses to answer things it actually knows. So instead of guessing, I tested it against real questions and wrote down the scores (using the `?debug=true` flag).
 
-**Genuine matches landed at 0.67–0.73** — e.g. "Anker PowerCore 10000mAh" scored 0.73 against the real product; "Do you have any Baseus products?" scored 0.67.
+- **Real matches scored 0.67–0.73.** For example, asking about the Anker PowerCore scored 0.73 against the real product.
+- **The hardest trap case scored 0.60–0.64.** This is a real brand paired with a product we *don't* carry — like "Baseus Bowie D99" (we sell Baseus chargers, not that model). This is the exact mistake the brief warns about: matching on brand name alone instead of the actual product.
+- **Totally unrelated questions scored 0.50–0.61** (e.g. "do you sell washing machines?").
 
-**The brief's hardest trap case — a real brand paired with a model that doesn't exist** (`Baseus Bowie D99`, `Xiaomi Watch S4`) — consistently scored 0.60–0.64. This is exactly the failure mode called out as where most submissions go wrong: matching on brand name alone. The threshold has to sit above this band.
+I first tried `0.72`, but it rejected a real match ("Do you have any Baseus products?" scored 0.67). So I lowered it to **`0.65`** — that sits right between the trap-case scores and the real-match scores, fixing the false rejection without letting the trap cases through.
 
-**Unrelated or off-catalogue questions** ("Do you sell washing machines?", "Do you have fresh milk?") scored 0.50–0.61.
+**One thing this can't fully fix:** broad questions like "which is the cheapest smartwatch?" don't match well against any single product, since they're asking about a whole category, not one item. I documented this as a known limitation rather than lowering the threshold enough to risk letting trap cases through.
 
-A first pass at `0.72` sat safely above the trap-case band, but it also rejected a real match ("Baseus products?" at 0.67) — a false negative on exactly the metric that matters most. **`0.65`** sits in the gap between the trap-case ceiling (0.64) and the genuine-match floor (0.67), fixing that false negative without reopening any trap case.
-
-**A limitation this can't fully solve:** aggregate questions like "which is the cheapest smartwatch?" don't score highly against any single product's description, since no one product's text is semantically close to a category-wide question. Lowering the threshold far enough to catch these would also let the brand-collision traps back in — so this is documented as a known limitation rather than traded against the metric the brief weights highest.
-
-**Two test questions from the brief that don't exist in this data file:** "Anker PowerCore 20000mAh" (only a 10000mAh model is stocked) and "JBL Go 4" (only a JBL Go 3 is stocked). Both correctly return `found: false` — the system won't substitute a different model number and call it a match.
+**Two test questions from the brief don't match this exact data file** — it only has an Anker PowerCore **10000mAh** (not 20000mAh) and a JBL Go **3** (not Go 4). The system correctly says "not available" for both rather than answering with the wrong model number.
 
 ---
 
-## Data problems found in the spreadsheet, and how each was handled
+## Problems found in the spreadsheet, and how they were fixed
 
-| Problem | Example | Handling |
+| Problem | Example | What I did |
 |---|---|---|
-| Prices stored as text, inconsistently | `"3,200"`, `"৳4,990"`, `"2,999 Taka"`, `"1200 tk"` | Strip everything except digits/decimal point, then parse to a number |
-| Sale price vs. list price | Blank `Sale Price` = no discount | `effectivePrice = salePrice ?? price`; this is what "price" questions answer with |
-| Inconsistent casing | `"power bank"` / `"POWER BANK"`, `"baseus"` / `"Anker"` | Normalized to title case for category and brand |
-| Stray whitespace | `" Baseus 65W GaN Charger "` | Trimmed on every text field |
-| Blank cells | Missing warranty, stock, sale price; one product with no price at all | Kept as `null`, never defaulted — so the model can honestly say "not listed" instead of guessing |
-| Duplicate row | `P-1017` appears twice, identical | First occurrence kept, duplicate logged and skipped during ingestion |
-| Mixed currency | One product priced in USD, rest in BDT | Currency kept as-is per product, shown alongside the price rather than silently converted |
-| Stock quantity of `"0"` | boAt Rockerz 450 | Parsed as a real zero, not treated as missing — `inStock` correctly comes out `false` |
+| Prices written as text, in different formats | `"3,200"`, `"৳4,990"`, `"2,999 Taka"` | Stripped everything except numbers, then converted to a real number |
+| Sale price vs. regular price | Blank Sale Price = no discount | Used sale price when it exists, otherwise regular price |
+| Inconsistent capitalization | `"power bank"` vs `"POWER BANK"` | Normalized to title case |
+| Extra spaces | `" Baseus 65W GaN Charger "` | Trimmed every text field |
+| Missing data | Some rows had no warranty, stock, or price | Left as empty rather than guessing a value, so the AI can honestly say "not listed" |
+| Duplicate row | Same product listed twice | Kept the first one, skipped and logged the rest |
+| Mixed currency | One product priced in USD, the rest in BDT | Kept as-is and shown clearly, instead of silently converting |
+| Stock quantity of `0` | One product truly out of stock | Treated as a real zero, correctly marked out of stock |
 
 ---
 
-## Known limitations / what I'd improve with more time
+## What I'd improve with more time
 
-- Retrieval is plain cosine similarity over ~30 vectors in a JSON file — fine at this scale, would need a real vector index past a few thousand products.
-- Category-wide or superlative questions ("cheapest smartwatch") aren't reliably retrieved, since matching happens per-product rather than per-category.
-- No conversation history — each question is answered independently.
-- No caching of repeated identical questions.
-- The threshold was tuned against the brief's test set, not a large labeled sample; more real queries would make it more defensible.
+- Broad/category questions (like "cheapest smartwatch") don't retrieve well — would need a different search strategy for those.
+- No memory between questions — each one is answered on its own.
+- No caching for repeated questions.
+- The threshold was tuned on a small set of test questions; a bigger real-world sample would make it more solid.
 
 ## Project structure
 
 ```
 src/
-  ai/         Gemini client wrapper (embedding + chat, retry handling)
-  products/   Excel normalization, similarity math, knowledge base storage
-  ask/        The /ask endpoint: DTO validation, controller, orchestration
+  ai/         Talks to Gemini (embeddings + chat, with retry handling)
+  products/   Cleans the Excel data, does the similarity search, stores results
+  ask/        The /ask endpoint itself: validation, controller, main logic
 scripts/
-  ingest.ts   Standalone ingestion script (npm run ingest)
+  ingest.ts   Standalone script that builds the knowledge base
 data/
-  knowledge-base.json   Committed, pre-built knowledge base
+  knowledge-base.json   Already-built knowledge base, committed to the repo
 public/
-  index.html  Minimal chat UI
+  index.html  Simple chat UI
 ```
