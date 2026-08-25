@@ -1,6 +1,7 @@
 # Product Knowledge Assistant
 
 **Live demo:** https://rag-ai-product-assistant.onrender.com/
+**API docs (Swagger):** https://rag-ai-product-assistant.onrender.com/api-docs
 **Repo:** https://github.com/Mozahid-AIUB/RAG_AI-Product-Assistant
 
 > Free hosting spins down when idle. First request after a while can take ~50 seconds to wake up. After that it's fast.
