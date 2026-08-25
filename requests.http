@@ -1,0 +1,59 @@
+### Found case: exact product
+POST http://localhost:3000/ask
+Content-Type: application/json
+
+{ "question": "How much is the Anker PowerCore 20000mAh?" }
+
+### Found case: brand query
+POST http://localhost:3000/ask
+Content-Type: application/json
+
+{ "question": "Do you have any Baseus products?" }
+
+### Found case: warranty lookup
+POST http://localhost:3000/ask
+Content-Type: application/json
+
+{ "question": "What is the warranty on the Amazfit Bip 5?" }
+
+### Found case: with debug scores
+POST http://localhost:3000/ask?debug=true
+Content-Type: application/json
+
+{ "question": "Is the Soundcore Life P3 in stock?" }
+
+### Not available: product category not stocked
+POST http://localhost:3000/ask
+Content-Type: application/json
+
+{ "question": "Do you sell washing machines?" }
+
+### Not available: product not in catalogue
+POST http://localhost:3000/ask
+Content-Type: application/json
+
+{ "question": "How much is the iPhone 17 Pro Max?" }
+
+### Not available: unrelated question
+POST http://localhost:3000/ask
+Content-Type: application/json
+
+{ "question": "What is your return policy?" }
+
+### Tricky: misspelled but real product
+POST http://localhost:3000/ask
+Content-Type: application/json
+
+{ "question": "powerbnk anker 20000" }
+
+### Tricky: stocked brand, unstocked model
+POST http://localhost:3000/ask
+Content-Type: application/json
+
+{ "question": "Do you have the Baseus Bowie D99?" }
+
+### Validation: empty question should 400
+POST http://localhost:3000/ask
+Content-Type: application/json
+
+{ "question": "" }
