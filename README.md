@@ -97,7 +97,7 @@ Not found:
 
 Add `?debug=true` to the URL to also get back the matched products and their similarity scores — helpful for seeing *why* a question got answered or rejected.
 
-See [`requests.http`](./requests.http) for ready-to-run example requests.
+See [`requests.http`](./requests.http) for ready-to-run example requests, or open **`/api-docs`** ([live version](https://rag-ai-product-assistant.onrender.com/api-docs)) for interactive Swagger documentation.
 
 ### Environment variables
 
